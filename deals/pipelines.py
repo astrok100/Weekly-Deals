@@ -18,6 +18,7 @@ from dateparser import parse
 
 class BasePipline(object):
 
+    collection_name = 'offers'
     pipline_name = None
     mongo_map = [
         "product_code",
@@ -33,6 +34,24 @@ class BasePipline(object):
         "name",
         "promo"
     ]
+
+    def __init__(self, mongo_uri, mongo_db):
+        self.mongo_uri = mongo_uri
+        self.mongo_db = mongo_db
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            mongo_uri=crawler.settings.get('MONGO_URI'),
+            mongo_db=crawler.settings.get('MONGO_DATABASE', 'items')
+        )
+
+    def open_spider(self, spider):
+        self.client = MongoClient(self.mongo_uri)
+        self.db = self.client[self.mongo_db]
+
+    def close_spider(self, spider):
+        self.client.close()
 
     def scrub_dict(self, dict_item):
         return {
@@ -58,7 +77,7 @@ class BasePipline(object):
     def str_to_float(self, value):
         try:
             return float(value)
-        except Exception as e:
+        except Exception:
             return value
 
 
@@ -70,8 +89,6 @@ class AldiPipeline(BasePipline):
 
         if spider.name != self.pipline_name:
             return items
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client['Deals']
 
         for item in items.get('results'):
             item = self.scrub_dict(item)
@@ -84,7 +101,8 @@ class AldiPipeline(BasePipline):
             item['product_url'] = spider.base_domain + item.pop('productUrl')
             item['price_per_unit'] = item.pop('pricePerUnit')
             item['alt_was_price'] = item.get('wasPrice')
-            item['was_price'] = self.str_to_float(item.pop('wasPrice').replace(u"€", ''))
+            item['was_price'] = self.str_to_float(
+                item.pop('wasPrice').replace(u"€", ''))
             item['price'] = self.str_to_float(item['price'].replace(u"€", ''))
             item['promo'] = "super-6"
             offer = {info: item.get(info) or None for info in self.mongo_map}
@@ -93,16 +111,16 @@ class AldiPipeline(BasePipline):
                 "retailer": self.pipline_name
             })
 
-            db.offers.update(
+            self.db[self.collection_name].update(
                 {
                     "product_code": offer['product_code'],
                     "date_from": offer['date_from'],
                     "date_to": offer['date_to']
                 },
                 offer,
-                upsert=True
+                True
             )
-        return items 
+        return items
 
     # TODO: make this better
     def insert_dates(self, desc):
@@ -113,7 +131,7 @@ class AldiPipeline(BasePipline):
             if search and search.group(0):
                 date_range = desc.split(search.group(0))
                 if len(date_range) == 2:
-                    dates = [   
+                    dates = [
                         re.search(r'(\d+\w\w\s\w+)', d_r, re.I).group(0)
                         for d_r in date_range
                     ]
@@ -128,8 +146,6 @@ class LidlPipeline(BasePipline):
     def process_item(self, items, spider):
         if spider.name != self.pipline_name:
             return items
-        client = MongoClient("mongodb://localhost:27017/")
-        db = client['Deals']
 
         for item in items.get('results'):
             item = self.scrub_dict(item)
@@ -151,7 +167,7 @@ class LidlPipeline(BasePipline):
                 "retailer": self.pipline_name
             })
 
-            db.offers.update(
+            self.db[self.collection_name].update(
                 {
                     "product_code": offer['product_code'],
                     "date_from": offer['date_from'],
@@ -175,8 +191,8 @@ class LidlPipeline(BasePipline):
             if was_price:
                 try:
                     was_price = Decimal(was_price.group(1))
-                    
-                except Exception as e:
+
+                except Exception:
                     # cents e.g 90c
                     was_price = re.search(r"Was\s(\d+)c", price, re.I)
                     if was_price:
@@ -199,7 +215,7 @@ class LidlPipeline(BasePipline):
             ]
             if dates:
                 dates = [
-                # 22.08.2017
+                    # 22.08.2017
                     parse(
                         "{}{}".format(date, datetime.now().year),
                         settings={'DATE_ORDER': 'DMY'}

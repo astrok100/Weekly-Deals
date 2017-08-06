@@ -1,56 +1,66 @@
-# -*- coding: utf-8 -*-
-
-# Define here the models for your spider middleware
-#
-# See documentation in:
-# http://doc.scrapy.org/en/latest/topics/spider-middleware.html
-
-from scrapy import signals
+from datetime import datetime
+from lib.file_storage import write_file, write_gzip
 
 
-class DealsSpiderMiddleware(object):
-    # Not all methods need to be defined. If a method is not defined,
-    # scrapy acts as if the spider middleware does not modify the
-    # passed objects.
+class HtmlStorageMiddleware(object):
+    """
+    Scrapy Downloader middleware to store request responses to local disk
+    """
+    def __init__(self, settings):
+        """
+        Args:
+            settings (scrapy.settings.Settings)
+        """
+        self.settings = settings.get('HTML_STORAGE', {})
+        self.compress = self.settings.get('COMPRESS', False)
+        self.path = self.settings.get('PATH', '~/storage/')
 
     @classmethod
-    def from_crawler(cls, crawler):
-        # This method is used by Scrapy to create your spiders.
-        s = cls()
-        crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
-        return s
+    def from_settings(self, settings):
+        """Contruct middleware with scrapy settings.
+        Args:
+            settings (scrapy.settings.Settings)
+        Returns:
+            HtmlStorageMiddleware:
+        """
+        return HtmlStorageMiddleware(settings)
 
-    def process_spider_input(self, response, spider):
-        # Called for each response that goes through the spider
-        # middleware and into the spider.
+    def process_response(self, request, response, spider):
+        """Stores response HTML body to file.
+        Args:
+            request (scrapy.http.request.Request): request which triggered
+                this response.
+            response (scrapy.http.Response)
+            spider: (scrapy.Spider): spider that triggered the request.
+                Spiders must set 'started_crawling' field to Unix timestamp.
+        Returns:
+            scrapy.http.response.Response: unmodified response object.
+        """
+        if not spider.replay:
+            self.save_response(spider.name, response.body)
 
-        # Should return None or raise an exception.
-        return None
+        return response
 
-    def process_spider_output(self, response, result, spider):
-        # Called with the results returned from the Spider, after
-        # it has processed the response.
+    def save_response(self, spider_name, html_body):
+        """Store html to file.
+        Optionally file will be gzipped.
+        Args:
+            str(spider_name): file path to save html to.
+            str(html_body): file content.
+        """
 
-        # Must return an iterable of Request, dict or Item objects.
-        for i in result:
-            yield i
+        dt = datetime.now()
+        filename = "{}-{}".format(
+            spider_name, dt.strftime("%H:%M:%S:%f"))
+        file_path = "{}/{}/{}/{}.html".format(
+            self.path,
+            spider_name,
+            dt.date(),
+            filename
+        )
+        func = write_file
 
-    def process_spider_exception(self, response, exception, spider):
-        # Called when a spider or process_spider_input() method
-        # (from other spider middleware) raises an exception.
+        if self.compress:
+            func = write_gzip
 
-        # Should return either None or an iterable of Response, dict
-        # or Item objects.
-        pass
-
-    def process_start_requests(self, start_requests, spider):
-        # Called with the start requests of the spider, and works
-        # similarly to the process_spider_output() method, except
-        # that it doesn’t have a response associated.
-
-        # Must return only requests (not items).
-        for r in start_requests:
-            yield r
-
-    def spider_opened(self, spider):
-        spider.logger.info('Spider opened: %s' % spider.name)
+        func(file_path, html_body)

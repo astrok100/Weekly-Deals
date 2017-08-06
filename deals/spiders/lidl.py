@@ -1,4 +1,6 @@
 import scrapy
+from deals.settings import HTML_STORAGE
+from deals.lib.file_storage import list_files
 
 
 class LidlSpider(scrapy.Spider):
@@ -6,12 +8,32 @@ class LidlSpider(scrapy.Spider):
     base_domain = 'lidl.ie'
 
     allowed_domains = ['lidl.ie']
+    # TODO: pull from mongo
     start_urls = [
         "https://www.lidl.ie/en/super-savers.htm?id=61&week=1",
         "https://www.lidl.ie/en/super-savers.htm?id=63&week=1",
         "https://www.lidl.ie/en/super-savers.htm?id=62&week=1"
     ]
-    # TODO: pull xpath from mongo
+    replay = False
+
+    def __init__(self, *args, **kwargs):
+        super(LidlSpider, self).__init__(*args, **kwargs)
+        replay = kwargs.get('replay')
+        date = kwargs.get("date")
+        if replay and date:
+            self.logger.info("Replaying old scrap {}".format(date))
+            file_path = "{}/{}/{}".format(
+                HTML_STORAGE.get('PATH'),
+                self.name,
+                date
+            )
+            self.start_urls = [
+                "file://{}/{}".format(file_path, f)
+                for f in list_files(file_path)
+            ]
+            self.replay = replay
+
+    # TODO: pull xpath from a db
     def parse(self, response):
         items = response.xpath('//ul[@class="productgrid__list"]/li')
         products = {"results": []}
