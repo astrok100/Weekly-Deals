@@ -1,7 +1,7 @@
 import scrapy
 import json
 from deals.settings import HTML_STORAGE
-from deals.lib.file_storage import list_files
+from deals.lib.file_storage import list_dir
 
 
 class AldiSpider(scrapy.Spider):
@@ -27,7 +27,7 @@ class AldiSpider(scrapy.Spider):
             )
             self.start_urls = [
                 "file://{}/{}".format(file_path, f)
-                for f in list_files(file_path)
+                for f in list_dir(file_path)
             ]
             self.replay = replay
 
