@@ -80,6 +80,16 @@ class BasePipline(object):
         except Exception:
             return value
 
+    def set_date_to_max(self, value):
+        if isinstance(value, datetime):
+            value = datetime.combine(value.date(), value.time().max)
+        return value
+
+    def set_date_to_min(self, value):
+        if isinstance(value, datetime):
+            value = datetime.combine(value.date(), value.time().min)
+        return value
+
 
 class AldiPipeline(BasePipline):
 
@@ -136,7 +146,8 @@ class AldiPipeline(BasePipline):
                         for d_r in date_range
                     ]
                     date_from, date_to = [parse(d) for d in dates]
-        return date_from, date_to
+
+        return self.set_date_to_min(date_from), self.set_date_to_max(date_to)
 
 
 class LidlPipeline(BasePipline):
@@ -226,4 +237,4 @@ class LidlPipeline(BasePipline):
                 date_from, date_to = dates
             elif len(dates) == 1:
                 date_from = dates.pop()
-        return date_from, date_to
+        return self.set_date_to_min(date_from), self.set_date_to_max(date_to)
