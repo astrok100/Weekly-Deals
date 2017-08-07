@@ -32,7 +32,8 @@ class BasePipline(object):
         "date_from",
         "price_per_unit",
         "name",
-        "promo"
+        "promo",
+        "promo_year"
     ]
 
     def __init__(self, mongo_uri, mongo_db):
@@ -108,6 +109,7 @@ class AldiPipeline(BasePipline):
             item['product_code'] = "{}-{}".format(
                 self.pipline_name, item.pop('code')
             )
+            item['promo_year'] = datetime.now().date().year
             item['product_url'] = spider.base_domain + item.pop('productUrl')
             item['price_per_unit'] = item.pop('pricePerUnit')
             item['alt_was_price'] = item.get('wasPrice')
@@ -124,8 +126,8 @@ class AldiPipeline(BasePipline):
             self.db[self.collection_name].update(
                 {
                     "product_code": offer['product_code'],
-                    "date_from": offer['date_from'],
-                    "date_to": offer['date_to']
+                    "description": offer['description'],
+                    "promo_year": offer['promo_year']
                 },
                 offer,
                 True
@@ -163,8 +165,11 @@ class LidlPipeline(BasePipline):
             item['was_price'] = self.string_to_decimal(
                 item['alt_was_price'])
 
+            item['promo_year'] = datetime.now().date().year
             date_from, date_to = self.insert_dates(item.get('description'))
             item['date_from'] = date_from
+            if not date_to:
+                date_to = self.set_date_to_max(datetime.now())
             item['date_to'] = date_to
             item['price'] = self.str_to_float(item['price'])
             item['product_url'] = "{}{}".format(
@@ -174,15 +179,15 @@ class LidlPipeline(BasePipline):
 
             offer = {info: item.get(info) or None for info in self.mongo_map}
             offer.update({
-                "updated": str(datetime.now().date()),
+                "updated": datetime.now(),
                 "retailer": self.pipline_name
             })
 
             self.db[self.collection_name].update(
                 {
                     "product_code": offer['product_code'],
-                    "date_from": offer['date_from'],
-                    "date_to": offer['date_to']
+                    "description": offer['description'],
+                    "promo_year": offer['promo_year']
                 },
                 offer,
                 upsert=True
