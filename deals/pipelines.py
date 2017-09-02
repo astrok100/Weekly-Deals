@@ -14,6 +14,7 @@ from decimal import Decimal
 from datetime import datetime
 from pymongo import MongoClient
 from dateparser import parse
+from lxml import etree, html
 
 
 class BasePipline(object):
@@ -116,6 +117,7 @@ class AldiPipeline(BasePipline):
             item['was_price'] = self.str_to_float(
                 item.pop('wasPrice').replace(u"€", ''))
             item['price'] = self.str_to_float(item['price'].replace(u"€", ''))
+            item['picture'] = self.lazy_load_img(item['picture'])
             item['promo'] = "super-6"
             offer = {info: item.get(info) or None for info in self.mongo_map}
             offer.update({
@@ -133,6 +135,15 @@ class AldiPipeline(BasePipline):
                 True
             )
         return items
+
+    def lazy_load_img(self, img):
+        image = html.fromstring(img)
+        image.attrib['class'] = "{} lazyload".format(
+            image.attrib.pop('class'))
+        sources = image.xpath("//source")
+        for source in sources:
+            source.attrib['data-srcset'] = source.attrib.pop("srcset")
+        return etree.tostring(image)
 
     # TODO: make this better
     def insert_dates(self, desc):

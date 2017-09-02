@@ -45,8 +45,7 @@ class LidlSpider(scrapy.Spider):
                     ".//div/div/ul/li/div/text()").extract_first(),
                 "price": item.xpath("@data-price").extract_first(),
                 "product_code": item.xpath("@data-id").extract_first(),
-                "name": item.xpath(
-                    ".//div/a/span[1]/h2/text()").extract_first(),
+                "name": item.xpath("@data-name").extract_first(),
                 "alt_was_price": item.xpath(
                     ".//div/a/span[2]/span/span[1]/span[1]/text()"
                 ).extract_first(),
