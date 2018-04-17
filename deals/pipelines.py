@@ -174,8 +174,8 @@ class LidlPipeline(BasePipline):
         for item in items.get('results'):
             item = self.scrub_dict(item)
             item['was_price'] = self.string_to_decimal(
-                item['alt_was_price'])
-
+                item['alt_was_price']) or self.string_to_decimal(
+                    item['old_price'])
             item['promo_year'] = datetime.now().date().year
             date_from, date_to = self.insert_dates(item.get('description'))
             item['date_from'] = date_from
@@ -210,9 +210,12 @@ class LidlPipeline(BasePipline):
         was_price = None
         if price:
             was_price = (
-                re.search(r"Was\s.?(\d+\.\d*)", price, re.I) or
-                re.search(r"Was\s(\d+c)", price, re.I) or
-                re.search(ur"Was\s€(\d+)", price, re.I)
+                re.search(ur"Was\s€(\d+\.\d*)", price, re.I) or
+                re.search(ur"Was\s(\d+c)", price, re.I) or
+                re.search(ur"Was\s€(\d+)", price, re.I) or
+                re.search(ur"^€(\d+\.\d*)", price, re.I) or
+                re.search(ur"^€(\d+)", price, re.I)or
+                re.search(ur"^(\d+c)", price, re.I)
             )
 
             if was_price:
@@ -221,7 +224,7 @@ class LidlPipeline(BasePipline):
 
                 except Exception:
                     # cents e.g 90c
-                    was_price = re.search(r"Was\s(\d+)c", price, re.I)
+                    was_price = re.search(r"(\d+)c", was_price.group(1), re.I)
                     if was_price:
                         was_price = "0.{}".format(was_price.group(1))
                         was_price = Decimal(was_price)

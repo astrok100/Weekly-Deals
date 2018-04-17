@@ -49,6 +49,11 @@ class LidlSpider(scrapy.Spider):
                 "alt_was_price": item.xpath(
                     ".//div/a/span[2]/span/span[1]/span[1]/text()"
                 ).extract_first(),
+                "old_price": item.css(
+                    ".pricefield__old-price"
+                ).xpath("text()").extract_first() if item.css(
+                    ".pricefield__old-price"
+                ).extract_first() else None,
                 "price_per_unit": item.xpath(
                     ".//div/a/span[2]/span/span[2]/text()").extract_first(),
                 "promo": item.xpath("@data-list").extract_first()
